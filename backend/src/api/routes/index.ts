@@ -1,0 +1,48 @@
+import { Router } from 'express';
+import { authRouter } from '../controllers/auth.controller';
+import { agentRouter } from '../controllers/agent.controller';
+import { teamRouter } from '../controllers/team.controller';
+import { taskRouter } from '../controllers/task.controller';
+import { messageRouter } from '../controllers/message.controller';
+import { permissionRouter } from '../controllers/permission.controller';
+import { organizationRouter } from '../controllers/organization.controller';
+import { fileRouter } from '../controllers/file.controller';
+import { settingsRouter } from '../controllers/settings.controller';
+import { scheduledTaskRouter } from '../controllers/scheduled-task.controller';
+import { skillRouter } from '../controllers/skill.controller';
+import { executeRouter } from '../controllers/execute.controller';
+import { integrationRouter } from '../controllers/integration.controller';
+import { ttsRouter } from '../controllers/tts.controller';
+import { approvalRouter } from '../controllers/approval.controller';
+import { sessionRouter } from '../controllers/session.controller';
+import { pluginRouter } from '../controllers/plugin.controller';
+import { channelRouter } from '../controllers/channel.controller';
+import { memoryRouter } from '../controllers/memory.controller';
+import { cronRouter } from '../controllers/cron.controller';
+import { feedbackRouter } from '../controllers/feedback.controller';
+
+const router = Router();
+
+router.use('/auth', authRouter);
+router.use('/agents', agentRouter);
+router.use('/teams', teamRouter);
+router.use('/tasks', taskRouter);
+router.use('/messages', messageRouter);
+router.use('/permissions', permissionRouter);
+router.use('/organizations', organizationRouter);
+router.use('/files', fileRouter);
+router.use('/settings', settingsRouter);
+router.use('/scheduled-tasks', scheduledTaskRouter);
+router.use('/skills', skillRouter);
+router.use('/execute', executeRouter);
+router.use('/integrations', integrationRouter);
+router.use('/tts', ttsRouter);
+router.use('/approvals', approvalRouter);
+router.use('/sessions', sessionRouter);
+router.use('/plugins', pluginRouter);
+router.use('/channels', channelRouter);
+router.use('/memory', memoryRouter);
+router.use('/cron-jobs', cronRouter);
+router.use('/feedback', feedbackRouter);
+
+export { router as apiRouter };

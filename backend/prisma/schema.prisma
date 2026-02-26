@@ -1,0 +1,458 @@
+// ============================================================================
+// Workspace AI - Prisma Schema
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Users -------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  name      String   @db.VarChar(255)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  agents         Agent[]
+  teams          Team[]
+  tasks          Task[]
+  organizations  Organization[]
+  projectFiles   ProjectFile[]
+  scheduledTasks ScheduledTask[]
+  skills             Skill[]
+  integrationConnections UserIntegration[]
+  chatSessions       ChatSession[]
+  feedback           Feedback[]
+
+  @@map("users")
+}
+
+// --- Organizations -----------------------------------------------------------
+
+model Organization {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departments Department[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("organizations")
+}
+
+// --- Departments -------------------------------------------------------------
+
+model Department {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(255)
+  description    String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teams        Team[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+// --- Agents ------------------------------------------------------------------
+
+model Agent {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  teamId        String?  @map("team_id") @db.Uuid
+  name          String   @db.VarChar(255)
+  role          String   @db.VarChar(100)
+  specialty     String[]
+  status        String   @default("idle") @db.VarChar(50)
+  isMainAgent   Boolean  @default(false) @map("is_main_agent")
+  contextId     String?  @map("context_id") @db.Uuid
+  currentTaskId String?  @map("current_task_id") @db.Uuid
+  capabilities   String[]
+  personality    String?  @db.Text
+  modelProvider  String   @default("anthropic") @map("model_provider") @db.VarChar(50)
+  modelName      String?  @map("model_name") @db.VarChar(100)
+  createdAt      DateTime @default(now()) @map("created_at")
+  lastActive     DateTime @default(now()) @map("last_active")
+  lastSyncAt    DateTime? @map("last_sync_at")
+  stats         Json     @default("{\"tasksCompleted\":0,\"messagesProcessed\":0,\"uptimeSeconds\":0,\"successRate\":100}")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team            Team?             @relation("TeamAgents", fields: [teamId], references: [id], onDelete: SetNull)
+  ledTeams        Team[]            @relation("TeamLead")
+  createdTasks    Task[]            @relation("TaskCreator")
+  taskAssignments TaskAssignment[]
+  sentMessages    Message[]         @relation("MessageSender")
+  recipientOf     MessageRecipient[] @relation("AgentRecipient")
+  permissions     Permission[]
+  auditLogs       AuditLog[]
+  context         AgentContext?
+  projectFiles    ProjectFile[]
+  memories        AgentMemory[]
+  scheduledTasks  ScheduledTask[]
+  agentSkills     AgentSkill[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([teamId])
+  @@index([status])
+  @@map("agents")
+}
+
+// --- Teams -------------------------------------------------------------------
+
+model Team {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  departmentId  String?  @map("department_id") @db.Uuid
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  goal          String?  @db.Text
+  leadAgentId   String?  @map("lead_agent_id") @db.Uuid
+  sharedContext String?  @map("shared_context") @db.Text
+  status        String   @default("active") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  leadAgent  Agent?            @relation("TeamLead", fields: [leadAgentId], references: [id], onDelete: SetNull)
+  agents     Agent[]           @relation("TeamAgents")
+  tasks      Task[]
+  messages   MessageRecipient[] @relation("TeamRecipient")
+
+  @@map("teams")
+}
+
+// --- Tasks -------------------------------------------------------------------
+
+model Task {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  teamId          String?  @map("team_id") @db.Uuid
+  title           String   @db.VarChar(500)
+  description     String?  @db.Text
+  priority        String   @default("medium") @db.VarChar(50)
+  status          String   @default("pending") @db.VarChar(50)
+  createdByAgentId String? @map("created_by_agent_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  deadline        DateTime?
+  progress        Int      @default(0)
+  result          Json?
+  metadata        Json     @default("{}")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team        Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy   Agent?           @relation("TaskCreator", fields: [createdByAgentId], references: [id])
+  assignments TaskAssignment[]
+
+  @@index([teamId])
+  @@index([status])
+  @@index([userId])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  taskId     String   @map("task_id") @db.Uuid
+  agentId    String   @map("agent_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, agentId])
+  @@map("task_assignments")
+}
+
+// --- Messages ----------------------------------------------------------------
+
+model Message {
+  id          String   @id @default(uuid()) @db.Uuid
+  fromAgentId String?  @map("from_agent_id") @db.Uuid
+  fromUser    Boolean  @default(false) @map("from_user")
+  type        String   @db.VarChar(50)
+  content     String   @db.Text
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sender     Agent?            @relation("MessageSender", fields: [fromAgentId], references: [id], onDelete: SetNull)
+  recipients MessageRecipient[]
+
+  @@index([fromAgentId])
+  @@index([createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+model MessageRecipient {
+  id        String    @id @default(uuid()) @db.Uuid
+  messageId String    @map("message_id") @db.Uuid
+  agentId   String?   @map("agent_id") @db.Uuid
+  teamId    String?   @map("team_id") @db.Uuid
+  readAt    DateTime? @map("read_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  agent   Agent?  @relation("AgentRecipient", fields: [agentId], references: [id], onDelete: Cascade)
+  team    Team?   @relation("TeamRecipient", fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("message_recipients")
+}
+
+// --- Project Files -----------------------------------------------------------
+
+model ProjectFile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  agentId   String?  @map("agent_id") @db.Uuid
+  taskId    String?  @map("task_id") @db.Uuid
+  path      String   @db.Text
+  content   String   @db.Text
+  language  String?  @db.VarChar(50)
+  size      Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, path])
+  @@index([userId])
+  @@index([agentId])
+  @@map("project_files")
+}
+
+// --- Permissions -------------------------------------------------------------
+
+model Permission {
+  id             String    @id @default(uuid()) @db.Uuid
+  agentId        String    @map("agent_id") @db.Uuid
+  permissionType String    @map("permission_type") @db.VarChar(100)
+  scope          String?   @db.Text
+  granted        Boolean   @default(false)
+  duration       String?   @db.VarChar(50)
+  expiresAt      DateTime? @map("expires_at")
+  grantedAt      DateTime? @map("granted_at")
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, permissionType, scope])
+  @@map("permissions")
+}
+
+// --- Audit Log ---------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  agentId    String?  @map("agent_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  toolName   String?  @map("tool_name") @db.VarChar(100)
+  parameters Json?
+  result     Json?
+  success    Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  agent Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@map("audit_log")
+}
+
+// --- Agent Memory ------------------------------------------------------------
+
+model AgentMemory {
+  id         String   @id @default(uuid()) @db.Uuid
+  agentId    String   @map("agent_id") @db.Uuid
+  content    String   @db.Text
+  type       String   @db.VarChar(50)
+  importance Float    @default(5.0)
+  embedding  Json?    @db.JsonB
+  createdAt  DateTime @default(now()) @map("created_at")
+  accessedAt DateTime @default(now()) @map("accessed_at")
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, importance])
+  @@index([agentId, createdAt])
+  @@map("agent_memories")
+}
+
+// --- Scheduled Tasks ---------------------------------------------------------
+
+model ScheduledTask {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  agentId        String?   @map("agent_id") @db.Uuid
+  title          String    @db.VarChar(500)
+  description    String    @db.Text
+  scheduleType   String    @map("schedule_type") @db.VarChar(20)
+  runAt          DateTime? @map("run_at")
+  cronExpression String?   @map("cron_expression") @db.VarChar(100)
+  enabled        Boolean   @default(true)
+  lastRunAt      DateTime? @map("last_run_at")
+  nextRunAt      DateTime? @map("next_run_at")
+  jobId          String?   @map("job_id") @db.VarChar(255)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, enabled])
+  @@map("scheduled_tasks")
+}
+
+// --- Skills ------------------------------------------------------------------
+
+model Skill {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  name           String   @unique @db.VarChar(100)
+  description    String   @db.Text
+  toolDefinition Json     @map("tool_definition")
+  handlerType    String   @map("handler_type") @db.VarChar(50)
+  handlerConfig  Json     @map("handler_config")
+  isPublic       Boolean  @default(false) @map("is_public")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agentSkills AgentSkill[]
+
+  @@map("skills")
+}
+
+model AgentSkill {
+  agentId   String   @map("agent_id") @db.Uuid
+  skillId   String   @map("skill_id") @db.Uuid
+  enabledAt DateTime @default(now()) @map("enabled_at")
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([agentId, skillId])
+  @@map("agent_skills")
+}
+
+// --- Integrations ------------------------------------------------------------
+
+model Integration {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  description String   @db.Text
+  category    String   @db.VarChar(50)   // 'communication', 'project_management', 'storage', 'development', 'crm', 'analytics'
+  iconUrl     String?  @map("icon_url") @db.VarChar(500)
+  website     String?  @db.VarChar(500)
+  authType    String   @map("auth_type") @db.VarChar(50) // 'oauth2', 'api_key', 'webhook', 'none'
+  authConfig  Json     @default("{}") @map("auth_config")  // OAuth URLs, scopes, etc.
+  actions     Json     @default("[]")  // Available actions this integration supports
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userConnections UserIntegration[]
+
+  @@index([category])
+  @@index([isActive])
+  @@map("integrations")
+}
+
+model UserIntegration {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  integrationId   String    @map("integration_id") @db.Uuid
+  status          String    @default("connected") @db.VarChar(50) // 'connected', 'disconnected', 'error', 'pending'
+  credentials     Json      @default("{}") // Encrypted tokens, API keys (never sent to frontend)
+  config          Json      @default("{}") // User-specific settings for this integration
+  connectedAt     DateTime  @default(now()) @map("connected_at")
+  lastUsedAt      DateTime? @map("last_used_at")
+  expiresAt       DateTime? @map("expires_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  logs        IntegrationLog[]
+
+  @@unique([userId, integrationId])
+  @@index([userId])
+  @@index([integrationId])
+  @@map("user_integrations")
+}
+
+model IntegrationLog {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userIntegrationId   String   @map("user_integration_id") @db.Uuid
+  action              String   @db.VarChar(100)
+  status              String   @db.VarChar(50)  // 'success', 'error'
+  requestPayload      Json?    @map("request_payload")
+  responsePayload     Json?    @map("response_payload")
+  errorMessage        String?  @map("error_message") @db.Text
+  executionTimeMs     Int?     @map("execution_time_ms")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  userIntegration UserIntegration @relation(fields: [userIntegrationId], references: [id], onDelete: Cascade)
+
+  @@index([userIntegrationId, createdAt(sort: Desc)])
+  @@map("integration_logs")
+}
+
+// --- Agent Context -----------------------------------------------------------
+
+model AgentContext {
+  id                  String   @id @default(uuid()) @db.Uuid
+  agentId             String   @unique @map("agent_id") @db.Uuid
+  conversationHistory Json     @default("[]") @map("conversation_history")
+  knowledgeBase       Json     @default("{}") @map("knowledge_base")
+  workingMemory       Json     @default("{}") @map("working_memory")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@map("agent_contexts")
+}
+
+// --- Feedback ----------------------------------------------------------------
+
+model Feedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   @db.VarChar(50)
+  rating    Int?
+  message   String   @db.Text
+  status    String   @default("new") @db.VarChar(30)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("feedback")
+}
+
+// --- Chat Sessions -----------------------------------------------------------
+
+model ChatSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  agentId   String?  @map("agent_id") @db.Uuid
+  name      String   @default("New Chat") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("chat_sessions")
+}

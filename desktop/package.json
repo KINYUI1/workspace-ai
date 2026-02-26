@@ -1,0 +1,28 @@
+{
+  "name": "workspace-ai-desktop",
+  "version": "1.0.0",
+  "description": "Workspace AI — Local-first desktop app",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "tsc && WORKSPACE_AI_DESKTOP=true electron dist/main.js",
+    "build:electron": "tsc",
+    "build:all": "cd ../frontend && npm run build && cd ../desktop && tsc",
+    "start": "WORKSPACE_AI_DESKTOP=true electron dist/main.js",
+    "pack:mac": "electron-builder --mac",
+    "pack:win": "electron-builder --win",
+    "pack:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "tsx": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.10",
+    "@types/node-cron": "^3.0.11",
+    "electron": "^36.0.0",
+    "electron-builder": "^26.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.9.0"
+  }
+}
