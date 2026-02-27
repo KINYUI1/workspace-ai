@@ -94,7 +94,7 @@ export function createApp(options?: { skipCatchAll?: boolean }): express.Applica
   // ---------------------------------------------------------------------------
 
   if (env.NODE_ENV === 'production' && !options?.skipCatchAll) {
-    const frontendDir = path.join(__dirname, '../../frontend/dist');
+    const frontendDir = path.join(__dirname, '../../../../frontend/dist');
     app.use(express.static(frontendDir));
     // SPA fallback: any non-API route serves index.html
     app.get('*', (_req, res) => {

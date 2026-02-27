@@ -39,6 +39,7 @@ function getRedisOpts() {
   if (url.protocol === 'rediss:') {
     opts.tls = {};
   }
+  opts.enableReadyCheck = false;
   return opts;
 }
 
