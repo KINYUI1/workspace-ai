@@ -27,6 +27,26 @@ export class AuthService {
       data: { email, password: hashedPassword, name },
     });
 
+    // Create default Atlas agent for the new user
+    const atlas = await this.db.agent.create({
+      data: {
+        userId: user.id,
+        name: 'Atlas',
+        role: 'Main Orchestrator',
+        specialty: ['task delegation', 'team management', 'strategic planning'],
+        isMainAgent: true,
+        status: 'active',
+        capabilities: [
+          'create_task',
+          'create_team',
+          'send_message',
+          'broadcast',
+          'manage_agents',
+        ],
+      },
+    });
+    await this.db.agentContext.create({ data: { agentId: atlas.id } });
+
     const payload: AuthPayload = { userId: user.id, email: user.email };
     const token = generateToken(payload);
 
