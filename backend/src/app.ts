@@ -18,7 +18,21 @@ export function createApp(options?: { skipCatchAll?: boolean }): express.Applica
   // ---------------------------------------------------------------------------
 
   // Security headers
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net'],
+          styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'fonts.googleapis.com'],
+          fontSrc: ["'self'", 'fonts.gstatic.com', 'cdn.jsdelivr.net'],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'", 'wss:', 'ws:'],
+          workerSrc: ["'self'", 'blob:'],
+        },
+      },
+    }),
+  );
 
   // CORS
   app.use(
