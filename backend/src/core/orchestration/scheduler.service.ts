@@ -25,11 +25,21 @@ async function getNodeCron(): Promise<any> {
 
 function getRedisOpts() {
   const url = new URL(env.REDIS_URL);
-  return {
+  const opts: Record<string, unknown> = {
     host: url.hostname,
     port: Number(url.port) || 6379,
     maxRetriesPerRequest: null as null,
   };
+  if (url.password) {
+    opts.password = decodeURIComponent(url.password);
+  }
+  if (url.username && url.username !== 'default') {
+    opts.username = url.username;
+  }
+  if (url.protocol === 'rediss:') {
+    opts.tls = {};
+  }
+  return opts;
 }
 
 export class SchedulerService {
